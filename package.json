@@ -1,0 +1,24 @@
+{
+  "name": "get-data",
+  "version": "1.0.0",
+  "main": "g.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "colors": "^1.1.2",
+    "get-artist-title": "^1.0.0",
+    "glob": "^7.1.2",
+    "iconv-lite": "^0.4.17",
+    "id3-writer": "^1.2.2",
+    "request": "^2.81.0",
+    "xmldom": "^0.1.27",
+    "xpath": "0.0.24"
+  },
+  "devDependencies": {},
+  "description": ""
+}
