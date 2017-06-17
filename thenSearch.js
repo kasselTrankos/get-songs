@@ -42,6 +42,20 @@ var thenSearch = function(author, title, callback){
 			callback(results);
 		});
 	}
+	function Google (author, title, callback){
+		var str = 'https://www.google.es/search?q=';
+		str+=author.split(' ').join('+')+'+'+title.split(' ').join('+');
+		request({
+			url: str, 
+			encoding: null
+			},
+			function (error, response, body) {
+				var $  = cheerio.load(iconv.decode(new Buffer(body), "ISO-8859-1"));
+		  		var fecha = $('span:contains("Fecha de lanzamiento")').parent().find('span').eq(1).text();
+		  		var genre = $('span:contains("Género")').parent().find('span').eq(1).text();
+		  		callback(fecha, genre);
+		});
+	};
 	function Selected(uri, author, title, callback){
 		request({
 			url: uri, 
@@ -88,12 +102,17 @@ var thenSearch = function(author, title, callback){
 		  }
 		]).then(function (answer) {
 		  Selected(answer.choice[0].uri, answer.choice[0].author, answer.choice[0].title, function(album, cover_Art){
-		  	callback({
-		  		album: album, 
-		  		artist: author,
-		  		title: title,
-		  		cover: cover_Art
+		  	Google(author, title, function(year, genre){
+		  		callback({
+			  		album: album, 
+			  		artist: author,
+			  		title: title,
+			  		cover: cover_Art,
+			  		year: year,
+			  		genre: genre
+			  	});
 		  	});
+		  	
 		  });
 		});
 	});

@@ -18,37 +18,82 @@ var fs = require('fs'),
 	getArtistTitle = require("get-artist-title"),
 	request = require('request');
 
-var str = 'https://www.google.es/search?q=';
-var f = process.argv.pop();
-try {
-	let [artist, title] = getArtistTitle(f);
-}catch(err){
-	fillData();
-	return false;
+var move = function(oldPath, newPath){
+	fs.rename(oldPath, newPath, function (err) {
+	  if (err) console.log( err.red, oldPath, newPath);
+	  console.log('Successfully movido a'.green, newPath.blue)
+	});
+}
+var mkdirSync = function (dirPath, callback) {
+	  mkdirp(dirPath, function (err) {
+	    if (err) console.error(err)
+	    else callback();
+	});
+}
+function getData(body, error, callback){
+	var _str = 'https://genius.com/'+artist.split(' ').join('-')+'-'+title.split(' ').join('-')+'-lyrics';
+	request({
+		url: _str, 
+		encoding: null
+	},
+	function (_error, _response, _body) {
+		if(_error){
+			fillData();
+			return false;
+		}
+		var $  = cheerio.load(iconv.decode(new Buffer(body), "ISO-8859-1"));
+  		var album = $('span:contains("Álbum")').parent().find('span').eq(1).find('a').text();
+  		var fecha = $('span:contains("Fecha de lanzamiento")').parent().find('span').eq(1).text();
+  		var genre = $('span:contains("Género")').parent().find('span').eq(1).text();
+  		var $$ = cheerio.load(iconv.decode(new Buffer(_body), "ISO-8859-1"));
+  		var cover_Art =  $$('div.cover_art').find('img').eq(0).attr('src');
+		callback({
+			artist: artist,
+			title: title,
+  			album: album,
+  			year: fecha,
+  			genre: genre
+
+  		}, cover_Art);
+
+	});
 }
 
-str+=artist.split(' ').join('+')+'+'+title.split(' ').join('+');
-request({
-	url: str, 
-	encoding: null
-	},
-	function (error, response, body) {
-  		getData(body, error, function(id3, uriCover){
-  			getCover(uriCover, id3, function(id3){
-  				wiriteId(id3, function(meta, _iF){
-  					var dirPath =process.cwd()+'/'+meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() })+'/'+meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
-  					var _file = _iF;
-  					mkdirSync(dirPath, function(){
-  						move(
-  							process.cwd()+'/'+_file+'.mp3', 
-  							dirPath+'/'+_file+'.mp3'
-  						);
-  					});
-  				});
-  			});
-  		});
-  	}
-);
+var f = process.argv.pop();
+let [artist, title] = getArtistTitle(f);
+
+if(!artist && !title){
+	fillData();
+}else{
+	initializeNormal();
+}
+
+function initializeNormal(){
+	var str = 'https://www.google.es/search?q=';
+	str+=artist.split(' ').join('+')+'+'+title.split(' ').join('+');
+	request({
+		url: str, 
+		encoding: null
+		},
+		function (error, response, body) {
+	  		getData(body, error, function(id3, uriCover){
+	  			getCover(uriCover, id3, function(id3){
+	  				wiriteId(id3, function(meta, _iF){
+	  					var dirPath =process.cwd()+'/'+meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() })+'/'+meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
+	  					var _file = _iF;
+	  					mkdirSync(dirPath, function(){
+	  						move(
+	  							process.cwd()+'/'+_file+'.mp3', 
+	  							dirPath+'/'+_file+'.mp3'
+	  						);
+	  					});
+	  				});
+	  			});
+	  		});
+	  	}
+	);
+}
+
 
 function getCover(uri, tag, callback){
 	try{
@@ -62,6 +107,7 @@ function getCover(uri, tag, callback){
 	
 }
 function fillData(){
+	console.log(f.green);
 	var questions = [
 	  {
 	    type: 'input',
@@ -129,52 +175,5 @@ function wiriteId(tag, callback){
 			console.log(`Archivo ${f}.blue creado con tags e imagen`.green);
 			callback(tag, _iF);
 		}
-	});
-}
-var move = function(oldPath, newPath){
-	fs.rename(oldPath, newPath, function (err) {
-	  if (err) console.log( err.red, oldPath, newPath);
-	  console.log('Successfully movido a'.green, newPath.blue)
-	});
-}
-var mkdirSync = function (dirPath, callback) {
-	  mkdirp(dirPath, function (err) {
-	    if (err) console.error(err)
-	    else callback();
-	});
-}
-function getData(body, error, callback){
-	var _str = 'https://genius.com/'+artist.split(' ').join('-')+'-'+title.split(' ').join('-')+'-lyrics';
-	request({
-		url: _str, 
-		encoding: null
-	},
-	function (_error, _response, _body) {
-		if(_error){
-			fillData();
-			return false;
-		}
-		var $  = cheerio.load(iconv.decode(new Buffer(body), "ISO-8859-1"));
-  		var album = $('span:contains("Álbum")').parent().find('span').eq(1).find('a').text();
-  		var fecha = $('span:contains("Fecha de lanzamiento")').parent().find('span').eq(1).text();
-  		var genre = $('span:contains("Género")').parent().find('span').eq(1).text();
-  		var $$ = cheerio.load(iconv.decode(new Buffer(_body), "ISO-8859-1"));
-  		var cover_Art =  $$('div.cover_art').find('img').eq(0).attr('src');
-  		/*fs.writeFile("./joder.html", $('span:contains("Género")').parent().find('span').eq(1).html(), function(err) {
-		    if(err) {
-		        return console.log(err);
-		    }
-
-		    console.log("The file was saved!");
-		});*/ 
-		callback({
-			artist: artist,
-			title: title,
-  			album: album,
-  			year: fecha,
-  			genre: genre
-
-  		}, cover_Art);
-
 	});
 }
