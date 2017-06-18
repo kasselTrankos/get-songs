@@ -63,7 +63,6 @@ function getData(artist, title, body, error, callback){
 		encoding: null
 	},
 	function (_error, _response, _body) {
-		console.log(_str);
 		if(_error){
 			fillData();
 			return false;
@@ -97,7 +96,9 @@ var appendId3Tags = function(id3, cover){
 				file, 
 				dirPath+'/'+name+'.mp3'
 			);
-			fs.unlink(process.cwd()+'/'+name+'.json');
+			if (fs.existsSync(process.cwd()+'/'+f+'.json')) {
+				fs.unlink(process.cwd()+'/'+name+'.json');
+			}
 		});
 	});
 };
@@ -107,6 +108,10 @@ var appendId3Tags = function(id3, cover){
 
 
 function initializeNormal(artist, title){
+	if(artist==null || title==null){
+		fillData();
+		return false;
+	}
 	var str = 'https://www.google.es/search?q=';
 	str+=normalizeGoogle(artist)+'+'+normalizeGoogle(title);
 	request({
@@ -126,8 +131,9 @@ function initializeNormal(artist, title){
 
 function getCover(uri, callback){
 	try{
-		request(uri).pipe(fs.createWriteStream(process.cwd()+'/tmp.jpg').on('close', function(){
-			callback(process.cwd()+'/tmp.jpg')
+		var _name = new Date().getTime();
+		request(uri).pipe(fs.createWriteStream(process.cwd()+'/'+_name+'.jpg').on('close', function(){
+			callback(process.cwd()+'/'+_name+'.jpg')
 		}));
 	}catch (err) {
 	  fillData();
@@ -186,6 +192,7 @@ function wiriteId(tag, cover, callback){
 		if (err) {
     		console.log(err.red);
 		}else{
+			fs.unlink(cover);
 			console.log(`Archivo ${f}.blue creado con tags e imagen`.green);
 			callback(tag, _file, _name);
 		}
