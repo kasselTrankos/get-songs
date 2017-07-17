@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "g.js",
   "scripts": {
+    "start": "node start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,6 +24,7 @@
     "mkdirp": "^0.5.1",
     "picture-tube": "^1.0.0",
     "request": "^2.81.0",
+    "rxjs": "^5.4.2",
     "xmldom": "^0.1.27",
     "xpath": "0.0.24"
   },
