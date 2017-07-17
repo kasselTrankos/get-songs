@@ -3,6 +3,10 @@ const args = process.argv;
 const inquirer = require('inquirer'),
 	Rx = require('rxjs/Rx'),
 	colors = require('colors'),
+	_progress = require('cli-progress'),
+	ProgressBar = require('ascii-progress'),
+	spawn = require('child_process').spawn,
+	getStream = require('get-stream'),
 	execa = require('execa');
 
 const questions = [{
@@ -17,40 +21,54 @@ inquirer.prompt(questions).then((answers)=>{
 	//console.log(videoId, 11111);
 
 
-	
-	obtainVideo(answers, (youtubeJson)=>{
-		youtubeJson.subscribe({
-	      next: (e)=>{
-	      	//new Error("Unkown Error")
-	        
-	      },
-	      error: (e)=>{
+	const newname = new Date().getTime();
+	let _youtubeJson = obtainVideo(answers);
+	let _getMp4 = getMp4(answers, newname);
+
+	Rx.Observable.forkJoin(_youtubeJson, _getMp4).subscribe({
+		next: (e)=>{
+			console.log(e);
+      	},
+      	error: (e)=>{
 	      	console.log(e.red);
-	      }
-	    });
+      	}
 	});
-	
 
 });
-const obtainVideo = ({videoId} , callback) =>{
-	let youtubeJson = Rx.Observable.create((observer) => {
+const obtainVideo = ({videoId}) =>{
+	return Rx.Observable.create((observer) => {
 		execa('curl', [`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
 		.then(({stdout}) => {
 			if(stdout==='Not Found'){
-				///console.log('joder qye er')
 				observer.error(`vaya Full de id "${videoId}"`);
-				// console.log ( 'mierda error')
 			}else{
 				observer.next(stdout);
 			}
-			// console.log(result.stdout);
-			//=> 'unicorns'
 		});
 	});
-	callback(youtubeJson);
-	//var uri = ``
-	//console.log(videoId, `https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`);
-	// 
+};
+const getMp4 = ({videoId}, newname)=>{
+	const bar = new ProgressBar({ 
+	    schema: 'downloading: [:bar].cyan.bgWhite :percent.cyan',
+	    total : 5
+	});
+	return Rx.Observable.create((observer) => {
+		let c = 0;
+		var child = spawn('youtube-dl', ['--write-info-json', 
+		 `http://www.youtube.com/watch?v=${videoId}`, '-o', `${videoId}.mp4`], {shell: true});
+		child.stdout.on('data', function(data) {
+			++c;
+			bar.tick();
+			// if(bar.completed){
+			// }
+		});
+		// child.stderr.on('data', (data) => {
+		//   observer.error(`vaya Error en el spawn de id "${videoId}"`);
+		// });
+		child.on('close', function(stdout) {
+	        observer.next(stdout);
+	    });
+	});
 };
 
 //console.log(args);
