@@ -23,9 +23,9 @@ inquirer.prompt(questions).then((answers)=>{
 
 	const newname = new Date().getTime();
 	let _youtubeJson = obtainVideo(answers);
-	let _getMp4 = getMp4(answers, newname);
-
-	Rx.Observable.forkJoin(_youtubeJson, _getMp4).subscribe({
+	let _getMp4 = getMp4(answers);
+	let _getMp3 = getMp3(answers);
+	Rx.Observable.merge([_youtubeJson, _getMp4, _getMp3]).subscribe({
 		next: (e)=>{
 			console.log(e);
       	},
@@ -35,6 +35,21 @@ inquirer.prompt(questions).then((answers)=>{
 	});
 
 });
+const getMp3 = ({videoId})=>{
+	return Rx.Observable.create((observer) => {
+		execa('ffmpeg', [
+			'-loglevel', 'error', '-i',`${videoId}.mp4`, 
+			'-acodec', 'libmp3lame',`${videoId}.mp3`
+		])
+		.then(({stdout}) => {
+			if(stdout==='Not Found'){
+				observer.error(`vaya Full de id "${videoId}"`);
+			}else{
+				observer.next(stdout);
+			}
+		});
+	});
+};
 const obtainVideo = ({videoId}) =>{
 	return Rx.Observable.create((observer) => {
 		execa('curl', [`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
@@ -47,7 +62,7 @@ const obtainVideo = ({videoId}) =>{
 		});
 	});
 };
-const getMp4 = ({videoId}, newname)=>{
+const getMp4 = ({videoId})=>{
 	const bar = new ProgressBar({ 
 	    schema: 'downloading: [:bar].cyan.bgWhite :percent.cyan',
 	    total : 5
