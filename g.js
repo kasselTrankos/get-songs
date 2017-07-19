@@ -20,14 +20,21 @@ var fs = require('fs'),
 	request = require('request');
 
 var f = process.argv.pop();
-
-var construct = function(){
-
+//setData();
+const setData = (name, json, title)=>{
+	f = `${name}.mp4.info` || f;
+	json = json || false;
 	if (fs.existsSync(process.cwd()+'/'+f+'.json')) {
-		jsonfile.readFile(process.cwd()+'/'+f+'.json', function(err, obj) {
-		  if(err) return false;
-		  initializeNormal(obj.creator, obj.alt_title);
-		});
+		f = title || f;
+		
+		if(json){
+			initializeNormal(json.creator, json.alt_title, title);
+		}else{
+			jsonfile.readFile(process.cwd()+'/'+f+'.json', function(err, obj) {
+		  		if(err) return false;
+		  		initializeNormal(obj.creator, obj.alt_title, title);
+			});	
+		}
 	}else{
 		let [artist, title] = getArtistTitle(f);
 		if(!artist && !title){
@@ -38,6 +45,9 @@ var construct = function(){
 	}
 	
 }
+const getTitle = ()=>{
+
+};
 var normalizeGoogle = function(str){
 	return str.replace(new RegExp(/\,/, 'g'), '').replace(new RegExp(/\'/, 'g'), '').replace(new RegExp(/\?/, 'g'), '').split(' ').join('+');
 }
@@ -47,7 +57,7 @@ var normalizeGenius = function(str){
 var move = function(oldPath, newPath){
 	fs.rename(oldPath, newPath, function (err) {
 	  if (err) console.log( err.red, oldPath, newPath);
-	  console.log('Successfully movido a'.green, newPath.blue)
+	  console.log('Successfully movido a\n'.green, newPath.blue)
 	});
 }
 var mkdirSync = function (dirPath, callback) {
@@ -88,9 +98,12 @@ function getData(artist, title, body, error, callback){
 
 	});
 }
-var appendId3Tags = function(id3, cover){
+var appendId3Tags = function(id3, cover, filename){
 	wiriteId(id3, cover, function(meta, file, name){
+		name = filename || name;
 		var dirPath = process.cwd()+'/'+meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() })+'/'+meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
+		
+		console.log(`name is ${filename}, and ${name}`);
 		mkdirSync(dirPath, function() {
 			move(
 				file, 
@@ -107,9 +120,9 @@ var appendId3Tags = function(id3, cover){
 
 
 
-function initializeNormal(artist, title){
+const initializeNormal = (artist, title, file)=>{
 	if(artist==null || title==null){
-		fillData();
+		fillData(file);
 		return false;
 	}
 	var str = 'https://www.google.es/search?q=';
@@ -118,10 +131,11 @@ function initializeNormal(artist, title){
 		url: str, 
 		encoding: null
 		},
-		function (error, response, body) {
+		(error, response, body)=>{
 	  		getData(artist, title, body, error, function(id3, uriCover){
-	  			getCover(uriCover, function(coverFile){
-					appendId3Tags(id3, coverFile)
+	  			getCover(uriCover,(coverFile)=>{
+	  				console.log(`here is file ${file}`);
+					appendId3Tags(id3, coverFile, file);
 				});
 	  		});
 	  	}
@@ -140,7 +154,8 @@ function getCover(uri, callback){
 	}
 	
 }
-function fillData(){
+function fillData(file){
+	console.log(`${f}`.red);
 	var questions = [
 	  {
 	    type: 'input',
@@ -171,7 +186,7 @@ function fillData(){
 	.then(function (answers) {
 		thenSearch(answers.author, answers.title, function(e){
 			getCover(e.cover, function(coverFile){
-				appendId3Tags(e, coverFile)
+				appendId3Tags(e, coverFile, file)
 			});
 		});
 	});
@@ -198,4 +213,7 @@ function wiriteId(tag, cover, callback){
 		}
 	});
 }
-construct();
+
+module.exports = {
+	setData
+};

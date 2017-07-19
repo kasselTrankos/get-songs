@@ -3,11 +3,14 @@ const args = process.argv;
 const inquirer = require('inquirer'),
 	Rx = require('rxjs/Rx'),
 	colors = require('colors'),
+	{setData} = require('./g'),
 	_progress = require('cli-progress'),
 	ProgressBar = require('ascii-progress'),
 	spawn = require('child_process').spawn,
 	getStream = require('get-stream'),
 	subject = new Rx.Subject(),
+	cp = require('child_process'),
+
 	execa = require('execa');
 
 const questions = [{
@@ -27,14 +30,17 @@ inquirer.prompt(questions).then((answers)=>{
 				error(e){
 					console.log('e error', e);
 				},
-				next(e){
+				complete(e){
 					getMp3(answers).subscribe({
+
+						
 						complete(e){
 							rename(answers, JSON.parse(json)).subscribe({
 								complete(e){
 									rm(answers).subscribe({
-										next(e){
-
+										complete(e){
+											console.log('\ file renamed and mp3 done');
+											file(answers, JSON.parse(json));
 										}
 									});
 								}
@@ -43,93 +49,78 @@ inquirer.prompt(questions).then((answers)=>{
 					});
 				}
 			});
-			//conosle.log('e, next',e);
 		}
 	});
-	// .zip(
-	// 	obtainVideo(answers),
-	// 	getMp4(answers),
-	// 	getMp3(answers)
-
-	// );
-	// var subscription = source.subscribe(val => console.log(val));
 
 });
+const file = ({videoId}, json)=>{
+	setData(`${videoId}`, json, `${json.title}`);
+};
 const rm = ({videoId})=>{
 	return Rx.Observable.create((observer) => {
-		execa('rm', [`${videoId}.mp4`])
-		.then(({stdout}) => {
-			if(stdout==='Not Found'){
-				observer.error(`vaya Full de id "${videoId}"`);
-			}else{
-
-				observer.next(stdout);
-			}
+		const child = spawn('rm', [`${videoId}.mp4`]);
+		child.on('exit', (data)=>{
+			observer.complete();
 		});
 	});
 };
 const rename = ({videoId}, json)=>{
-
 	return Rx.Observable.create((observer) => {
-		execa('mv', [`${videoId}.mp3`, `${json.title}.mp3`])
-		.then(({stdout}) => {
-			if(stdout==='Not Found'){
-				observer.error(`vaya Full de id "${videoId}"`);
-			}else{
-				observer.complete(stdout);
-			}
+		const child = spawn('mv', [`${videoId}.mp3`, `${json.title}.mp3`]);
+		child.on('exit', (data)=>{
+			observer.complete();
 		});
 	});
 }
 const getMp3 = ({videoId})=>{
+	process.stdout.write(`\nCreating new mp3 file\n`.blue);
 	return Rx.Observable.create((observer) => {
-		var child = spawn('ffmpeg', [
+		const child = spawn('ffmpeg', [
 			'-y', '-loglevel', 'info',
 			 '-i',`${videoId}.mp4`, 
 			'-acodec', 'libmp3lame',`${videoId}.mp3`
 		]);
-		// process.stdout.write(`\nCreating new mp3 file\n`.blue);
+		
 		child.stderr.on('data', (data) => {
 			var str = data.toString();
 			if(/^size\=/.test(str)){
 				process.stdout.write(str.split('\n')[0].split('size=')[1].green);
 			}
 		});
-		child.on('close', function(stdout) {
-	        observer.complete(stdout);
-	    });
+		child.on('exit', (data)=>{
+			observer.complete(data);
+		});
 	});
 };
 const obtainVideo = ({videoId}) =>{
+	console.log(`Downloading video\n`.blue);
 	return Rx.Observable.create((observer) => {
 		execa('curl', [`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
 		.then(({stdout}) => {
 			if(stdout==='Not Found'){
 				observer.error(`vaya Full de id "${videoId}"`);
 			}else{
-
+				
 				observer.next(stdout);
+				observer.complete();
 			}
 		});
 	});
 };
 const getMp4 = ({videoId})=>{
-	const bar = new ProgressBar({ 
-	    schema: 'downloading: [:bar].cyan.bgWhite :percent.cyan',
-	    total : 5
-	});
+	var bar1 = new _progress.Bar({}, _progress.Presets.shades_classic);
+	bar1.start(5, 0);
 	return Rx.Observable.create((observer) => {
 		let c = 0;
 		var child = spawn('youtube-dl', ['--write-info-json', 
 		 `http://www.youtube.com/watch?v=${videoId}`, '-o', `${videoId}.mp4`], {shell: true});
 		child.stdout.on('data', function(data) {
 			++c;
-			bar.tick();
-			if(bar.completed){
-				observer.next(`mp3 is created ${videoId}.mp3`);
+			bar1.update(c);
+			if(c===5){
+				bar1.stop();
+				observer.complete(`Created ${videoId}.mp3`);
 			}
 		});
 	});
 };
-
-//console.log(args);
