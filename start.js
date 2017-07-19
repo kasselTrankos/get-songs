@@ -39,7 +39,7 @@ inquirer.prompt(questions).then((answers)=>{
 								complete(e){
 									rm(answers).subscribe({
 										complete(e){
-											console.log('\ file renamed and mp3 done');
+											console.log('\n file renamed and mp3 done'.green);
 											file(answers, JSON.parse(json));
 										}
 									});
@@ -95,7 +95,8 @@ const getMp3 = ({videoId})=>{
 const obtainVideo = ({videoId}) =>{
 	console.log(`Downloading video\n`.blue);
 	return Rx.Observable.create((observer) => {
-		execa('curl', [`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
+		execa('curl', 
+		[`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
 		.then(({stdout}) => {
 			if(stdout==='Not Found'){
 				observer.error(`vaya Full de id "${videoId}"`);
@@ -119,8 +120,10 @@ const getMp4 = ({videoId})=>{
 			bar1.update(c);
 			if(c===5){
 				bar1.stop();
-				observer.complete(`Created ${videoId}.mp3`);
 			}
+		});
+		child.on('exit', ()=>{
+			observer.complete();
 		});
 	});
 };

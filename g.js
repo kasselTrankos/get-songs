@@ -57,7 +57,7 @@ var normalizeGenius = function(str){
 var move = function(oldPath, newPath){
 	fs.rename(oldPath, newPath, function (err) {
 	  if (err) console.log( err.red, oldPath, newPath);
-	  console.log('Successfully movido a\n'.green, newPath.blue)
+	  console.log('Successfully moved to:\n'.green, newPath.blue)
 	});
 }
 var mkdirSync = function (dirPath, callback) {
@@ -98,13 +98,12 @@ function getData(artist, title, body, error, callback){
 
 	});
 }
-var appendId3Tags = function(id3, cover, filename){
-	wiriteId(id3, cover, function(meta, file, name){
+const appendId3Tags = (id3, cover, filename) =>{
+	wiriteId(id3, cover, (meta, file, name)=>{
 		name = filename || name;
 		var dirPath = process.cwd()+'/'+meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() })+'/'+meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
 		
-		console.log(`name is ${filename}, and ${name}`);
-		mkdirSync(dirPath, function() {
+		mkdirSync(dirPath, ()=>{
 			move(
 				file, 
 				dirPath+'/'+name+'.mp3'
