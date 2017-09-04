@@ -24,23 +24,28 @@ var f = process.argv.pop();
 const setData = (name, json, title)=>{
 	f = `${name}.mp4.info` || f;
 	json = json || false;
-	if (fs.existsSync(process.cwd()+'/'+f+'.json')) {
-		f = title || f;
-		
+	if (fs.existsSync(`${process.cwd()}/${f}.json`)) {
 		if(json){
-			initializeNormal(json.creator, json.alt_title, title);
+			initializeNormal(
+				json.creator, 
+				json.alt_title, 
+				title, 
+				name
+			);
 		}else{
 			jsonfile.readFile(process.cwd()+'/'+f+'.json', function(err, obj) {
 		  		if(err) return false;
-		  		initializeNormal(obj.creator, obj.alt_title, title);
+		  		initializeNormal(obj.creator, obj.alt_title, title, name);
 			});	
 		}
 	}else{
-		let [artist, title] = getArtistTitle(f);
-		if(!artist && !title){
-			fillData();
+		// console.log(' porque falla!!!', getArtistTitle(title), f, title, `${process.cwd()}/${f}.json`);
+		let [_artist, _title] = getArtistTitle(title);
+		if(!_artist && !_title){
+			fillData(title, name);
 		}else{
-			initializeNormal(artist, title);
+			console.log(_artist,',', _title);
+			initializeNormal(_artist, _title, title, name);
 		}
 	}
 	
@@ -99,17 +104,21 @@ function getData(artist, title, body, error, callback){
 	});
 }
 const appendId3Tags = (id3, cover, filename) =>{
-	wiriteId(id3, cover, (meta, file, name)=>{
+	writeId(id3, cover, filename, (meta, file, name)=>{
 		name = filename || name;
-		var dirPath = process.cwd()+'/'+meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() })+'/'+meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
-		
+		let _artist = meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() });
+		let _album = meta.album.replace(/\b\w/g, function(l){ return l.toUpperCase() });
+		let dirPath = `${process.cwd()}/${_artist}/${_album}`;
 		mkdirSync(dirPath, ()=>{
 			move(
 				file, 
-				dirPath+'/'+name+'.mp3'
+				`${dirPath}/${name}.mp3`
 			);
-			if (fs.existsSync(process.cwd()+'/'+f+'.json')) {
-				fs.unlink(process.cwd()+'/'+name+'.json');
+			if(fs.existsSync(cover)){
+				fs.unlink(cover);
+			}
+			if (fs.existsSync(`${process.cwd()}/${f}.json`)) {
+				fs.unlink(`${process.cwd()}/${f}.json`);
 			}
 		});
 	});
@@ -119,7 +128,7 @@ const appendId3Tags = (id3, cover, filename) =>{
 
 
 
-const initializeNormal = (artist, title, file)=>{
+const initializeNormal = (artist, title, file, cname)=>{
 	if(artist==null || title==null){
 		fillData(file);
 		return false;
@@ -132,8 +141,7 @@ const initializeNormal = (artist, title, file)=>{
 		},
 		(error, response, body)=>{
 	  		getData(artist, title, body, error, function(id3, uriCover){
-	  			getCover(uriCover,(coverFile)=>{
-	  				console.log(`here is file ${file}`);
+	  			getCover(uriCover, cname,(coverFile)=>{
 					appendId3Tags(id3, coverFile, file);
 				});
 	  		});
@@ -142,19 +150,24 @@ const initializeNormal = (artist, title, file)=>{
 }
 
 
-function getCover(uri, callback){
+const getCover = (uri, _name, callback) =>{
 	try{
-		var _name = new Date().getTime();
-		request(uri).pipe(fs.createWriteStream(process.cwd()+'/'+_name+'.jpg').on('close', function(){
-			callback(process.cwd()+'/'+_name+'.jpg')
+		//console.log(`getting cover from ${uri}`.yellow);
+		let _name = _name || new Date().getTime();
+		console.log(`${process.cwd()}/${_name}.jpg`);
+		request(uri)
+		.pipe(
+			fs.createWriteStream(`${process.cwd()}/${_name}.jpg`).on('close', function(){
+			callback(`${process.cwd()}/${_name}.jpg`)
 		}));
 	}catch (err) {
 	  fillData();
 	}
 	
 }
-function fillData(file){
-	console.log(`${f}`.red);
+function fillData(file, cname){
+	var name = file || f;
+	console.log(`${name}`.red);
 	var questions = [
 	  {
 	    type: 'input',
@@ -184,15 +197,16 @@ function fillData(file){
 	inquirer.prompt(questions)
 	.then(function (answers) {
 		thenSearch(answers.author, answers.title, function(e){
-			getCover(e.cover, function(coverFile){
+			getCover(e.cover, cname, function(coverFile){
 				appendId3Tags(e, coverFile, file)
 			});
 		});
 	});
 	//
 }
-function wiriteId(tag, cover, callback){
-	var _name  = (process.argv.length===3) ? process.argv.pop(): f;
+const writeId = (tag, cover, filename, callback) =>{
+	var _name  = (process.argv.length===3) ? process.argv.pop() : f;
+	_name = filename || _name;
 	var _file = process.cwd()+'/'+_name+'.mp3';
 	var file = new id3.File(_file);
   	var meta = new id3.Meta({

@@ -1,4 +1,4 @@
-var URL ='https://genius.com/search?q=';
+var URL ='https://genius.com/api/search/multi?per_page=5&q=';
 var fs = require('fs'),
 	cheerio = require('cheerio'),
 	iconv  = require('iconv-lite'),
@@ -11,36 +11,37 @@ var thenSearch = function(author, title, callback){
 	author = getVar('-a') || author;
 	title = getVar('-t') || title;
 	var results = [];
-
 	function Search(author, title, callback){
 		request({
-			url: URL+author.split(' ').join('-')+'-'+title.split(' ').join('-'), 
-			encoding: null
+			url: `${URL+author.split(' ').join('+')+'+'+title.split(' ').join('+')}`, 
+			encoding: null,
+			json:true
 		},
 		function (_error, _response, body) {
-			//callback(tag)
-			var $  = cheerio.load(iconv.decode(new Buffer(body), "ISO-8859-1"));
-			$('.search_results.song_list.primary_list li').each(function(i, el){
+			let _songs = obtainSongsList(body.response.sections);
+			let results = [];
+			_songs.map((elm)=>{
 				results.push({
 					value: {
-						title: $(this).find('a').find('span').find('span').eq(0).text(),
-						author: $(this).find('a').find('span').find('span').eq(2).text(),
-						uri: $(this).find('a').attr('href')
+						title: elm.result.title,
+						author: elm.result.primary_artist.name,
+						uri: elm.result.url,
+						cover: elm.result.header_image_url
 					},
-					
-					name: $(this).find('a').find('span').find('span').eq(2).text()+'/'+$(this).find('a').find('span').find('span').eq(0).text(),
+					name: `${elm.result.primary_artist.name}/${elm.result.title}`,
 					checked: false
 				});
 			});
-			/*fs.writeFile("./joder.html", $('.search_results.song_list.primary_list').html(), function(err) {
-			    if(err) {
-			        return console.log(err);
-			    }
-
-			    console.log("The file was saved!");
-			});*/
 			callback(results);
 		});
+	}
+	const obtainSongsList = (data)=>{
+		for(let i=0; i<data.length; i++){
+			if(data[i].type==='song'){
+				return data[i].hits;
+			}
+		}
+		return [];
 	}
 	function Google (author, title, callback){
 		var str = 'https://www.google.es/search?q=';
@@ -101,22 +102,25 @@ var thenSearch = function(author, title, callback){
 		    }
 		  }
 		]).then(function (answer) {
-		  Selected(answer.choice[0].uri, answer.choice[0].author, answer.choice[0].title, function(album, cover_Art){
-		  	Google(author, title, function(year, genre){
-		  		callback({
-			  		album: album, 
-			  		artist: author,
-			  		title: title,
-			  		cover: cover_Art,
-			  		year: year,
-			  		genre: genre
+		  Selected(answer.choice[0].uri, 
+		  	answer.choice[0].author, 
+		  	answer.choice[0].title, 
+		  	function(album, cover_Art){
+			  	Google(author, title, function(year, genre){
+			  		callback({
+				  		album: album, 
+				  		artist: author,
+				  		title: title,
+				  		cover: cover_Art,
+				  		year: year,
+				  		genre: genre
+				  	});
 			  	});
 		  	});
-		  	
-		  });
 		});
 	});
 	//author = 
 }
 //thenSearch();
+// thenSearch('REM', 'country feedback');
 module.exports = thenSearch;

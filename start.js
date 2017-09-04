@@ -32,8 +32,6 @@ inquirer.prompt(questions).then((answers)=>{
 				},
 				complete(e){
 					getMp3(answers).subscribe({
-
-						
 						complete(e){
 							rename(answers, JSON.parse(json)).subscribe({
 								complete(e){
@@ -99,7 +97,7 @@ const obtainVideo = ({videoId}) =>{
 		[`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`])
 		.then(({stdout}) => {
 			if(stdout==='Not Found'){
-				observer.error(`vaya Full de id "${videoId}"`);
+				observer.error(`vaya Full de youtubeId "${videoId}"`);
 			}else{
 				
 				observer.next(stdout);
