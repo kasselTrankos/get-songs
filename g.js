@@ -44,7 +44,6 @@ const setData = (name, json, title)=>{
 		if(!_artist && !_title){
 			fillData(title, name);
 		}else{
-			console.log(_artist,',', _title);
 			initializeNormal(_artist, _title, title, name);
 		}
 	}
@@ -221,7 +220,6 @@ function fillData(file, cname){
 	inquirer.prompt(questions)
 	.then(function (answers) {
 		thenSearch(answers.author, answers.title, function(e){
-			console.log(e, ' of then searcgh');
 			getCover(e.cover, cname, function(coverFile){
 				appendId3Tags(e, coverFile, file)
 			});
