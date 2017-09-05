@@ -103,38 +103,29 @@ const getData = (artist, title, body, error, callback) =>{
 			encoding: false,
 			json: true
 		}, (__error, __response, ___body)=> {
-			console.log(___body.response.referents);
+			let _r = ___body.response.referents;
+			let cover_Art = null, artist = null, title = null;
+			for(elmt in _r){
+				cover_Art= _r[elmt]['annotatable']['image_url'];
+				artist = _r[elmt]['annotatable']['context'];
+				title = _r[elmt]['annotatable']['title']
+
+			}
+
+			callback({
+				artist: artist,
+				title: title,
+	  			album: '',
+	  			year: '',
+	  			genre: ''
+
+	  		}, cover_Art);
 		})
-		// console.log(' dame el body', founds, _m, _uri);
-		// fs.writeFile(`./nada.html`, __body, function(err) {
-		//     if(err) {
-		//         return console.log(err);
-		//     }
-
-		//     console.log("The file was savedasdsdaasddas!");
-		// });
-		// var $  = cheerio.load(iconv.decode(new Buffer(body), "ISO-8859-1"));
-		// var $$ = cheerio.load(iconv.decode(new Buffer(_body), "ISO-8859-1"));
-		// var album = $('span:contains("Álbum")').parent().find('span').eq(1).find('a').text();
-  // 		var fecha = $('span:contains("Fecha de lanzamiento")').parent().find('span').eq(1).text();
-  // 		var genre = $('span:contains("Género")').parent().find('span').eq(1).text();
-		// if($$('h1').eq(0).text()=='Oops! Page not found'){
-		// 	fillData(album, fecha, genre);
-		// }else{
-	 //  		var cover_Art =  $$('div.cover_art').find('img').eq(0).attr('src');
-		// 	callback({
-		// 		artist: artist,
-		// 		title: title,
-	 //  			album: album,
-	 //  			year: fecha,
-	 //  			genre: genre
-
-	 //  		}, cover_Art);
-		// }
 
 	});
 }
 const appendId3Tags = (id3, cover, filename) =>{
+
 	writeId(id3, cover, filename, (meta, file, name)=>{
 		name = filename || name;
 		let _artist = meta.artist.replace(/\b\w/g, function(l){ return l.toUpperCase() });
@@ -172,6 +163,7 @@ const initializeNormal = (artist, title, file, cname)=>{
 		},
 		(error, response, body)=>{
 	  		getData(artist, title, body, error, function(id3, uriCover){
+	  			console.log(uriCover, ' on here from get Data');
 	  			getCover(uriCover, cname,(coverFile)=>{
 					appendId3Tags(id3, coverFile, file);
 				});
@@ -184,15 +176,16 @@ const initializeNormal = (artist, title, file, cname)=>{
 const getCover = (uri, _name, callback) =>{
 	try{
 		//console.log(`getting cover from ${uri}`.yellow);
-		let _name = _name || new Date().getTime();
-		console.log(`${process.cwd()}/${_name}.jpg`);
+		_name = _name || new Date().getTime();
+		// console.log(`${process.cwd()}/${_name}.jpg y cual es la aki fañña ${uri}`);
 		request(uri)
 		.pipe(
 			fs.createWriteStream(`${process.cwd()}/${_name}.jpg`).on('close', function(){
 			callback(`${process.cwd()}/${_name}.jpg`)
 		}));
 	}catch (err) {
-	  fillData();
+		console.log('error porqje', err);
+	  // fillData();
 	}
 	
 }
@@ -228,6 +221,7 @@ function fillData(file, cname){
 	inquirer.prompt(questions)
 	.then(function (answers) {
 		thenSearch(answers.author, answers.title, function(e){
+			console.log(e, ' of then searcgh');
 			getCover(e.cover, cname, function(coverFile){
 				appendId3Tags(e, coverFile, file)
 			});
@@ -251,7 +245,9 @@ const writeId = (tag, cover, filename, callback) =>{
 		if (err) {
     		console.log(err.red);
 		}else{
-			fs.unlink(cover);
+			if(fs.existsSync(cover)){
+				fs.unlink(cover);
+			}
 			console.log(`Archivo ${f}.blue creado con tags e imagen`.green);
 			callback(tag, _file, _name);
 		}

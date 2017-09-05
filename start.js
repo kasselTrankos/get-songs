@@ -37,7 +37,7 @@ inquirer.prompt(questions).then((answers)=>{
 								complete(e){
 									rm(answers).subscribe({
 										complete(e){
-											console.log('\n file renamed and mp3 done'.green);
+											console.log(`\n file renamed to  and mp3 done`.green);
 											file(answers, JSON.parse(json));
 										}
 									});
@@ -52,7 +52,7 @@ inquirer.prompt(questions).then((answers)=>{
 
 });
 const file = ({videoId}, json)=>{
-	setData(`${videoId}`, json, `${json.title}`);
+	setData(`${videoId}`, json, `${json.title.replace(/"/g,"")}`);
 };
 const rm = ({videoId})=>{
 	return Rx.Observable.create((observer) => {
@@ -64,7 +64,7 @@ const rm = ({videoId})=>{
 };
 const rename = ({videoId}, json)=>{
 	return Rx.Observable.create((observer) => {
-		const child = spawn('mv', [`${videoId}.mp3`, `${json.title}.mp3`]);
+		const child = spawn('mv', [`${videoId}.mp3`, `${json.title.replace(/"/g,"")}.mp3`]);
 		child.on('exit', (data)=>{
 			observer.complete();
 		});
