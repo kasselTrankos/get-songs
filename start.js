@@ -30,15 +30,17 @@ inquirer.prompt(questions).then((answers)=>{
 				error(e){
 					console.log('e error', e);
 				},
-				complete(e){
+				complete(e)
+				{
 					getMp3(answers).subscribe({
-						complete(e){
+						complete(e)
+						{
 							rename(answers, JSON.parse(json)).subscribe({
-								complete(e){
+								complete(_renamedTitle){
 									rm(answers).subscribe({
 										complete(e){
-											console.log(`\n file renamed to  and mp3 done`.green);
-											file(answers, JSON.parse(json));
+											console.log(`\n mp3 creado`.green);
+											file(answers, JSON.parse(json), `${JSON.parse(json).title.replace(/"/g,"")}.mp3`);
 										}
 									});
 								}
@@ -51,8 +53,8 @@ inquirer.prompt(questions).then((answers)=>{
 	});
 
 });
-const file = ({videoId}, json)=>{
-	setData(`${videoId}`, json, `${json.title.replace(/"/g,"")}`);
+const file = ({videoId}, json, renamedTitle)=>{
+	setData(videoId, json, json.title.replace(/"/g,""), renamedTitle);
 };
 const rm = ({videoId})=>{
 	return Rx.Observable.create((observer) => {
@@ -66,7 +68,7 @@ const rename = ({videoId}, json)=>{
 	return Rx.Observable.create((observer) => {
 		const child = spawn('mv', [`${videoId}.mp3`, `${json.title.replace(/"/g,"")}.mp3`]);
 		child.on('exit', (data)=>{
-			observer.complete();
+			observer.complete(`${json.title.replace(/"/g,"")}.mp3`);
 		});
 	});
 }

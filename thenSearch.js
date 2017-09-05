@@ -7,43 +7,55 @@ var fs = require('fs'),
 
 
 
-var thenSearch = function(author, title, callback){
+const thenSearch = (author, title, callback) =>{
 	author = getVar('-a') || author;
 	title = getVar('-t') || title;
 	var results = [];
-	function Search(author, title, callback){
+	const Search = (author, title, callback)=>{
 		request({
-			url: `${URL+author.split(' ').join('+')+'+'+title.split(' ').join('+')}`, 
+			url: `${URL}${author.split(' ').join('+')}+${title.split(' ').join('+')}`, 
 			encoding: null,
 			json:true
 		},
-		function (_error, _response, body) {
-			let _songs = obtainSongsList(body.response.sections);
-			let results = [];
-			_songs.map((elm)=>{
+		(error, response, body)=>{
+
+			let songs = obtainSongsList(body.response.sections), results = [];
+			songs.map((elm)=>{
+				let _author = (elm.result.primary_artist)? elm.result.primary_artist.name: elm.result.artist.name;
 				results.push({
 					value: {
 						title: elm.result.title,
-						author: elm.result.primary_artist.name,
+						author: _author,
 						uri: elm.result.url,
 						cover: elm.result.header_image_url
 					},
-					name: `${elm.result.primary_artist.name}/${elm.result.title}`,
+					name: `${_author}/${elm.result.title}`,
 					checked: false
 				});
 			});
 			callback(results);
 		});
 	}
+	const cleanResponse = (data)=>{
+		if(Object.prototype.toString.call( data ) === '[object Array]') return data[0];
+		return data;
+	}
 	const obtainSongsList = (data)=>{
 		for(let i=0; i<data.length; i++){
 			if(data[i].type==='song'){
-				return data[i].hits;
+				if(data[i].hits.length && data[i].hits.length>0) return data[i].hits;
+			}
+			if(data[i].type==='top_hit'){
+				if(data[i].hits.length && data[i].hits.length>0) return data[i].hits;
+			}
+			if(data[i].type==='lyric'){
+				if(data[i].hits.length && data[i].hits.length>0) return data[i].hits;
 			}
 		}
+		
 		return [];
 	}
-	function Google (author, title, callback){
+	const Google = (author, title, callback)=>{
 		var str = 'https://www.google.es/search?q=';
 		str+=author.split(' ').join('+')+'+'+title.split(' ').join('+');
 		request({

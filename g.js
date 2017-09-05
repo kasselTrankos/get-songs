@@ -20,33 +20,36 @@ var fs = require('fs'),
 	request = require('request');
 
 var f = process.argv.pop();
+var vid = null;
 //setData();
-const setData = (name, json, title)=>{
-	f = `${name}.mp4.info` || f;
+const setData = (videoId, json, title, filenamed) =>{
+	f = `${videoId}.mp4.info` || f;
+	vid = videoId;
 	json = json || false;
-	if (fs.existsSync(`${process.cwd()}/${f}.json`)) {
-		if(json){
-			initializeNormal(
-				json.creator, 
-				json.alt_title, 
-				title, 
-				name
-			);
-		}else{
-			jsonfile.readFile(process.cwd()+'/'+f+'.json', function(err, obj) {
-		  		if(err) return false;
-		  		initializeNormal(obj.creator, obj.alt_title, title, name);
-			});	
-		}
-	}else{
-		// console.log(' porque falla!!!', getArtistTitle(title), f, title, `${process.cwd()}/${f}.json`);
-		let [_artist, _title] = getArtistTitle(title);
-		if(!_artist && !_title){
-			fillData(title, name);
-		}else{
-			initializeNormal(_artist, _title, title, name);
-		}
+	if(json){
+		initializeNormal(
+			json.creator, 
+			json.alt_title, 
+			title, 
+			videoId,
+			filenamed
+		);
+		return false;
 	}
+	if (fs.existsSync(`${process.cwd()}/${f}.json`)) {
+		jsonfile.readFile(process.cwd()+'/'+f+'.json', function(err, obj) {
+	  		if(err) return false;
+	  		initializeNormal(obj.creator, obj.alt_title, title, videoId, filenamed);
+		});
+		return false;
+	}
+	let [_artist, _title] = getArtistTitle(title);
+	if(!_artist && !_title){
+		fillData(filenamed);
+	}else{
+		initializeNormal(_artist, _title, title, videoId, filenamed);
+	}
+	
 	
 }
 const getTitle = ()=>{
@@ -56,12 +59,18 @@ var normalizeGoogle = function(str){
 	return str.replace(new RegExp(/\,/, 'g'), '').replace(new RegExp(/\'/, 'g'), '').replace(new RegExp(/\?/, 'g'), '').split(' ').join('+');
 }
 var normalizeGenius = function(str){
-	return str.replace(new RegExp(/\,/, 'g'), '').replace(new RegExp(/\./, 'g'), '').replace(new RegExp(/\'/, 'g'), '').replace(/\?/, '').split(' ').join('-');
+	return str.replace(new RegExp(/\,/, 'g'), '')
+		.replace(new RegExp(/\+|\+\s|\s\+/, 'g'), '')
+		.replace(new RegExp(/\./, 'g'), '')
+		.replace(new RegExp(/\'/, 'g'), '')
+		.replace(/\?/, '')
+		.split(' ')
+		.join('-');
 }
 var move = function(oldPath, newPath){
 	fs.rename(oldPath, newPath, function (err) {
 	  if (err) console.log( err.red, oldPath, newPath);
-	  console.log('Successfully moved to:\n'.green, newPath.blue)
+	  // console.log('Successfully moved '.green)
 	});
 }
 var mkdirSync = function (dirPath, callback) {
@@ -70,15 +79,15 @@ var mkdirSync = function (dirPath, callback) {
 	    else callback();
 	});
 }
-const getData = (artist, title, body, error, callback) =>{
+const getData = (artist, title, body, error, filenamed, callback) =>{
 	let _uri = `https://genius.com/${normalizeGenius(artist, '-')}-${normalizeGenius(title, '-')}-lyrics`;
 	request({
 		url: _uri, 
 		encoding: null
 	},
 	(_error, _response, _body)=> {
-		//https://genius.com/api/referents/multi?text_format=html%2Cplain&ids%5B%5D=4040021&ids%5B%5D=4795510
-		getDifferent = (data)=>{
+		const getDifferent = (data)=>{
+			if (!data) return '';
 			let elms = [];
 			for(let i =0; i<data.length; i++){
 				let _m = data[i].match(/\d+/)
@@ -88,29 +97,26 @@ const getData = (artist, title, body, error, callback) =>{
 				}
 			}
 			return '&ids%5B%5D='+elms.join('&ids%5B%5D=')
-
 		};
 		if(_error){
-			fillData();
+			fillData(filenamed);
 			return false;
 		}
 		let __body = iconv.decode(new Buffer(_body), "ISO-8859-1");
 		let _m = new RegExp(`(\\d+)\\/${normalizeGenius(artist, '-')}`, 'gi');
 		let founds = __body.match(_m);
 		request({
-			url: 'https://genius.com/api/referents/multi?text_format=html%2Cplain'+getDifferent(founds),
+			url: `https://genius.com/api/referents/multi?text_format=html%2Cplain${getDifferent(founds)}`,
 			encoding: false,
 			json: true
 		}, (__error, __response, ___body)=> {
 			let _r = ___body.response.referents;
-			let cover_Art = null, artist = null, title = null;
+			let image_url = null, artist = null, title = null;
 			for(elmt in _r){
-				cover_Art= _r[elmt]['annotatable']['image_url'];
+				image_url= _r[elmt]['annotatable']['image_url'];
 				artist = _r[elmt]['annotatable']['context'];
 				title = _r[elmt]['annotatable']['title']
-
 			}
-
 			callback({
 				artist: artist,
 				title: title,
@@ -118,9 +124,20 @@ const getData = (artist, title, body, error, callback) =>{
 	  			year: '',
 	  			genre: ''
 
-	  		}, cover_Art);
+	  		}, image_url);
 		})
 
+	});
+}
+const initializeNormal = (artist, title, file, cname, filenamed)=>{
+	if(artist==null || title==null){
+		fillData(filenamed);
+		return false;
+	}
+	getData(artist, title, body, error, filenamed, function(id3, uriCover){
+		getCover(uriCover, filenamed,(coverFile)=>{
+			appendId3Tags(id3, coverFile, file);
+		});
 	});
 }
 const appendId3Tags = (id3, cover, filename) =>{
@@ -133,58 +150,27 @@ const appendId3Tags = (id3, cover, filename) =>{
 		mkdirSync(dirPath, ()=>{
 			move(
 				file, 
-				`${dirPath}/${name}.mp3`
+				`${dirPath}/${name}`
 			);
 			if(fs.existsSync(cover)){
 				fs.unlink(cover);
 			}
-			if (fs.existsSync(`${process.cwd()}/${f}.json`)) {
-				fs.unlink(`${process.cwd()}/${f}.json`);
+			if (fs.existsSync(`${process.cwd()}/${f}`)) {
+				fs.unlink(`${process.cwd()}/${f}`);
 			}
 		});
 	});
 };
-
-
-
-
-
-const initializeNormal = (artist, title, file, cname)=>{
-	if(artist==null || title==null){
-		fillData(file);
-		return false;
-	}
-	var str = 'https://www.google.es/search?q=';
-	str+=normalizeGoogle(artist)+'+'+normalizeGoogle(title);
-	request({
-		url: str, 
-		encoding: null
-		},
-		(error, response, body)=>{
-	  		getData(artist, title, body, error, function(id3, uriCover){
-	  			console.log(uriCover, ' on here from get Data');
-	  			getCover(uriCover, cname,(coverFile)=>{
-					appendId3Tags(id3, coverFile, file);
-				});
-	  		});
-	  	}
-	);
-}
-
-
-const getCover = (uri, _name, callback) =>{
+const getCover = (uri, filename, callback) =>{
 	try{
-		//console.log(`getting cover from ${uri}`.yellow);
-		_name = _name || new Date().getTime();
-		// console.log(`${process.cwd()}/${_name}.jpg y cual es la aki fañña ${uri}`);
+		filename = filename || new Date().getTime();
 		request(uri)
 		.pipe(
-			fs.createWriteStream(`${process.cwd()}/${_name}.jpg`).on('close', function(){
-			callback(`${process.cwd()}/${_name}.jpg`)
+			fs.createWriteStream(`${process.cwd()}/${vid}.jpg`).on('close', function(){
+			callback(`${process.cwd()}/${vid}.jpg`)
 		}));
 	}catch (err) {
-		console.log('error porqje', err);
-	  // fillData();
+	  fillData(filename);
 	}
 	
 }
@@ -220,7 +206,7 @@ function fillData(file, cname){
 	inquirer.prompt(questions)
 	.then(function (answers) {
 		thenSearch(answers.author, answers.title, function(e){
-			getCover(e.cover, cname, function(coverFile){
+			getCover(e.cover, file, function(coverFile){
 				appendId3Tags(e, coverFile, file)
 			});
 		});
@@ -230,7 +216,7 @@ function fillData(file, cname){
 const writeId = (tag, cover, filename, callback) =>{
 	var _name  = (process.argv.length===3) ? process.argv.pop() : f;
 	_name = filename || _name;
-	var _file = process.cwd()+'/'+_name+'.mp3';
+	var _file = process.cwd()+'/'+_name;
 	var file = new id3.File(_file);
   	var meta = new id3.Meta({
 	    artist: tag.artist,
@@ -246,7 +232,10 @@ const writeId = (tag, cover, filename, callback) =>{
 			if(fs.existsSync(cover)){
 				fs.unlink(cover);
 			}
-			console.log(`Archivo ${f}.blue creado con tags e imagen`.green);
+			if (fs.existsSync(`${process.cwd()}/${f}`)) {
+				fs.unlink(`${process.cwd()}/${f}`);
+			}
+			console.log(`Archivo creado`.green);
 			callback(tag, _file, _name);
 		}
 	});
